@@ -1,0 +1,145 @@
+package io.github.patbattb.yougile.plugins.manager.service;
+
+import io.github.patbattb.yougile.plugins.core.YouGilePlugin;
+import io.github.patbattb.yougile.plugins.manager.exception.PluginNotLoadedException;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.*;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.stream.Stream;
+
+public class PluginManager {
+
+    private final Map<String, YouGilePlugin> plugins = new HashMap<>();
+
+    public Map<String, YouGilePlugin> getPlugins() {
+        return plugins;
+    }
+
+    public void loadPlugins(Path pluginsFolder) {
+        try (Stream<Path> jarPaths = Files.list(pluginsFolder)) {
+            jarPaths.forEach(this::processJar);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        if (plugins.isEmpty()) {
+            throw new RuntimeException("No one plugin loaded.");
+        }
+    }
+
+    public void executePlugin(String name) {
+        YouGilePlugin plugin = plugins.get(name);
+        if (plugin != null) {
+            plugin.run();
+        }
+    }
+
+    private void processJar(Path jarPath) {
+        if (!jarPath.toString().endsWith(".jar")) {
+            return;
+        }
+        try (URLClassLoader classLoader = getNewClassLoader(jarPath.toUri().toURL())){
+            YouGilePlugin plugin = getPlugin(jarPath, classLoader);
+            if (plugins.containsKey(plugin.getFullName())) {
+                throw new PluginNotLoadedException("Plugins collision! This class "+plugin.getFullName()+" is already registered.");
+            }
+            plugins.put(plugin.getFullName(), plugin);
+        } catch (PluginNotLoadedException | IOException e) {
+            //TODO need logging
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private URLClassLoader getNewClassLoader(URL jarUrl) {
+        return new URLClassLoader(new URL[]{jarUrl}, getClass().getClassLoader());
+    }
+
+    private YouGilePlugin getPlugin(Path jarPath, URLClassLoader classLoader) throws PluginNotLoadedException {
+        YouGilePlugin plugin = null;
+        try (JarFile jarFile = new JarFile(jarPath.toFile())) {
+            Enumeration<JarEntry> entries = jarFile.entries();
+            int counter = 0;
+            while(entries.hasMoreElements()) {
+                if (counter > 1) {
+                    throw new PluginNotLoadedException(jarPath.getFileName() +
+                            " contains a few classes inherited from YouGilePlugin. The only one class is allowed"
+                    );
+                }
+                JarEntry entry = entries.nextElement();
+                if (entry.isDirectory() || !entry.getName().endsWith(".class")) {
+                    continue;
+                }
+                String className = getRealClassName(jarFile, entry); //!!!
+                Optional<YouGilePlugin> pluginOptional = extractPlugin(classLoader, className);
+                if (pluginOptional.isPresent()) {
+                    plugin = pluginOptional.get();
+                    counter++;
+                }
+            }
+        } catch (IOException e) {
+            throw new PluginNotLoadedException(e);
+        }
+        if (plugin == null) {
+            throw new PluginNotLoadedException(
+                    "The class inherited from YouGilePlugin in "+jarPath.getFileName()+" not found"
+            );
+        }
+        return plugin;
+    }
+
+    private Optional<YouGilePlugin> extractPlugin(URLClassLoader classLoader, String className) throws PluginNotLoadedException {
+        try {
+            Class<?> clazz = classLoader.loadClass(className);
+            Class<?> superClazz = clazz.getSuperclass();
+            if (YouGilePlugin.class.isAssignableFrom(superClazz)) {
+                Constructor<?> constructor = clazz.getDeclaredConstructor();
+                return Optional.of((YouGilePlugin) constructor.newInstance());
+
+            }
+        } catch (ClassNotFoundException | InvocationTargetException | NoSuchMethodException |
+                 InstantiationException | IllegalAccessException e) {
+            throw new PluginNotLoadedException(e);
+        }
+        return Optional.empty();
+    }
+
+    private String getRealClassName(JarFile jarFile, JarEntry jarEntry) throws PluginNotLoadedException {
+        try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
+            ClassReader reader = new ClassReader(inputStream);
+            ClassNameVisitor visitor = new ClassNameVisitor();
+            reader.accept(visitor, ClassReader.SKIP_CODE);
+            return visitor.getClassName();
+        } catch (IOException e) {
+            throw new PluginNotLoadedException("Error of getting class name.", e);
+        }
+    }
+
+    private static class ClassNameVisitor extends ClassVisitor {
+
+        private String className;
+
+        public ClassNameVisitor() {
+            super(Opcodes.ASM9);
+        }
+
+        @Override
+        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+            this.className = name.replace("/", ".");
+        }
+
+        public String getClassName() {
+            return className;
+        }
+    }
+}
