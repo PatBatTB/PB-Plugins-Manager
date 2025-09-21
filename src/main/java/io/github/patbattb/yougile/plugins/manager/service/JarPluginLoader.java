@@ -15,8 +15,6 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
@@ -24,13 +22,13 @@ import java.util.stream.Stream;
 public class JarPluginLoader implements PluginLoader {
 
     private final Path pluginsFolder;
-    private final ConcurrentMap<String, YouGilePlugin> plugins = new ConcurrentHashMap<>();
+    private final Map<String, YouGilePlugin> plugins = new HashMap<>();
 
     public JarPluginLoader(Path pluginsFolder) {
         this.pluginsFolder = pluginsFolder;
     }
 
-    public ConcurrentMap<String, YouGilePlugin> load() {
+    public Map<String, YouGilePlugin> load() {
         try (Stream<Path> jarPaths = Files.list(pluginsFolder)) {
             jarPaths.forEach(this::processJar);
         } catch (IOException e) {
@@ -63,7 +61,7 @@ public class JarPluginLoader implements PluginLoader {
     }
 
     private YouGilePlugin getPlugin(Path jarPath, URLClassLoader classLoader) throws PluginNotLoadedException {
-        Optional<YouGilePlugin> pluginOptional = Optional.empty();
+        Optional<YouGilePlugin> resultOptional = Optional.empty();
         try (JarFile jarFile = new JarFile(jarPath.toFile())) {
             Enumeration<JarEntry> entries = jarFile.entries();
             int counter = 0;
@@ -78,15 +76,16 @@ public class JarPluginLoader implements PluginLoader {
                     continue;
                 }
                 String className = getRealClassName(jarFile, entry);
-                pluginOptional = extractPlugin(classLoader, className);
+                Optional<YouGilePlugin> pluginOptional = extractPlugin(classLoader, className);
                 if (pluginOptional.isPresent()) {
+                    resultOptional = pluginOptional;
                     counter++;
                 }
             }
         } catch (IOException e) {
             throw new PluginNotLoadedException(e);
         }
-        return pluginOptional.orElseThrow(() ->
+        return resultOptional.orElseThrow(() ->
                 new PluginNotLoadedException(
                         "The class inherited from YouGilePlugin in "+jarPath.getFileName()+" not found"
                 )

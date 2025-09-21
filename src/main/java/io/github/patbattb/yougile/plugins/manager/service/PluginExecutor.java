@@ -7,12 +7,16 @@ import io.github.patbattb.yougile.plugins.manager.exception.PluginNotFoundExcept
 
 import java.util.concurrent.*;
 
-public class PluginExecutor {
+public class PluginExecutor implements AutoCloseable {
+
+    private static final int DEFAULT_THREAD_POOL = 10;
 
     private final PluginManager pluginManager;
     private final ExecutorService executorService;
     private final ConcurrentMap<String, Future<?>> tasks;
     private final Object lock;
+
+    private int terminationTimeout = 30;
 
     public PluginExecutor(PluginManager pluginManager, int threadPool) {
         this.pluginManager = pluginManager;
@@ -21,18 +25,33 @@ public class PluginExecutor {
         this.lock = new Object();
     }
 
+    public PluginExecutor(PluginManager pluginManager) {
+        this(pluginManager, DEFAULT_THREAD_POOL);
+    }
+
+    public void setTerminationTimeout(int terminationTimeout) {
+        this.terminationTimeout = terminationTimeout;
+    }
+
     public void invoke(String pluginName) throws PluginAlreadyRunException {
         synchronized (lock) {
             Future<?> task;
-            if (tasks.containsKey(pluginName)) {
-                task = tasks.get(pluginName);
-                if (task != null && !task.isDone()) {
-                    throw new PluginAlreadyRunException("Task " + pluginName + " ignored - already running");
-                }
+            if (isTaskRunning(pluginName)) {
+                throw new PluginAlreadyRunException("Task " + pluginName + " ignored - already running");
             }
             task = executorService.submit(getTask(pluginName));
             tasks.put(pluginName, task);
         }
+    }
+
+    private boolean isTaskRunning(String pluginName) {
+        if (tasks.containsKey(pluginName)) {
+            Future<?> task = tasks.get(pluginName);
+            if (task != null && !task.isDone()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Runnable getTask(String pluginName) {
@@ -56,7 +75,7 @@ public class PluginExecutor {
     public void shutdown(int exitCode) {
         executorService.shutdown();
         try {
-            if (!executorService.awaitTermination(30, TimeUnit.SECONDS)) {
+            if (!executorService.awaitTermination(terminationTimeout, TimeUnit.SECONDS)) {
                 System.out.println("ExecutorService is shutting down immediately.");
                 executorService.shutdownNow();
             }
@@ -64,5 +83,10 @@ public class PluginExecutor {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    @Override
+    public void close() {
+        executorService.close();
     }
 }

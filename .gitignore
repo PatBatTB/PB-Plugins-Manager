@@ -1,5 +1,6 @@
 target/
-plugins
+plugins/
+!**/src/**/plugins/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
