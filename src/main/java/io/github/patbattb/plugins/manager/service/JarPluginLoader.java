@@ -1,7 +1,7 @@
-package io.github.patbattb.yougile.plugins.manager.service;
+package io.github.patbattb.plugins.manager.service;
 
-import io.github.patbattb.yougile.plugins.core.YouGilePlugin;
-import io.github.patbattb.yougile.plugins.manager.exception.PluginNotLoadedException;
+import io.github.patbattb.plugins.core.Plugin;
+import io.github.patbattb.plugins.manager.exception.PluginNotLoadedException;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
@@ -22,13 +22,13 @@ import java.util.stream.Stream;
 public class JarPluginLoader implements PluginLoader {
 
     private final Path pluginsFolder;
-    private final Map<String, YouGilePlugin> plugins = new HashMap<>();
+    private final Map<String, Plugin> plugins = new HashMap<>();
 
     public JarPluginLoader(Path pluginsFolder) {
         this.pluginsFolder = pluginsFolder;
     }
 
-    public Map<String, YouGilePlugin> load() throws PluginNotLoadedException {
+    public Map<String, Plugin> load() throws PluginNotLoadedException {
         try (Stream<Path> jarPaths = Files.list(pluginsFolder)) {
             jarPaths.forEach(this::processJar);
         } catch (IOException e) {
@@ -45,7 +45,7 @@ public class JarPluginLoader implements PluginLoader {
             return;
         }
         try (URLClassLoader classLoader = getNewClassLoader(jarPath.toUri().toURL())){
-            YouGilePlugin plugin = getPlugin(jarPath, classLoader);
+            Plugin plugin = getPlugin(jarPath, classLoader);
             if (plugins.containsKey(plugin.getFullName())) {
                 throw new PluginNotLoadedException("Plugins collision! This class "+plugin.getFullName()+" is already registered.");
             }
@@ -60,8 +60,8 @@ public class JarPluginLoader implements PluginLoader {
         return new URLClassLoader(new URL[]{jarUrl}, getClass().getClassLoader());
     }
 
-    private YouGilePlugin getPlugin(Path jarPath, URLClassLoader classLoader) throws PluginNotLoadedException {
-        Optional<YouGilePlugin> resultOptional = Optional.empty();
+    private Plugin getPlugin(Path jarPath, URLClassLoader classLoader) throws PluginNotLoadedException {
+        Optional<Plugin> resultOptional = Optional.empty();
         try (JarFile jarFile = new JarFile(jarPath.toFile())) {
             Enumeration<JarEntry> entries = jarFile.entries();
             int counter = 0;
@@ -76,7 +76,7 @@ public class JarPluginLoader implements PluginLoader {
                     continue;
                 }
                 String className = getRealClassName(jarFile, entry);
-                Optional<YouGilePlugin> pluginOptional = extractPlugin(classLoader, className);
+                Optional<Plugin> pluginOptional = extractPlugin(classLoader, className);
                 if (pluginOptional.isPresent()) {
                     resultOptional = pluginOptional;
                     counter++;
@@ -92,13 +92,13 @@ public class JarPluginLoader implements PluginLoader {
         );
     }
 
-    private Optional<YouGilePlugin> extractPlugin(URLClassLoader classLoader, String className) throws PluginNotLoadedException {
+    private Optional<Plugin> extractPlugin(URLClassLoader classLoader, String className) throws PluginNotLoadedException {
         try {
             Class<?> clazz = classLoader.loadClass(className);
             Class<?> superClazz = clazz.getSuperclass();
-            if (YouGilePlugin.class.isAssignableFrom(superClazz)) {
+            if (Plugin.class.isAssignableFrom(superClazz)) {
                 Constructor<?> constructor = clazz.getDeclaredConstructor();
-                return Optional.of((YouGilePlugin) constructor.newInstance());
+                return Optional.of((Plugin) constructor.newInstance());
 
             }
         } catch (ClassNotFoundException | InvocationTargetException | NoSuchMethodException |

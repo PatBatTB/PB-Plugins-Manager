@@ -1,6 +1,6 @@
-package io.github.patbattb.yougile.plugins.manager.service;
+package io.github.patbattb.plugins.manager.service;
 
-import io.github.patbattb.yougile.plugins.manager.exception.PluginAlreadyRunException;
+import io.github.patbattb.plugins.manager.exception.PluginAlreadyRunException;
 
 import java.util.concurrent.*;
 
@@ -11,7 +11,6 @@ public class PluginExecutor implements AutoCloseable {
     private final ExecutorService executorService;
     private final ConcurrentMap<String, Future<?>> tasks;
     private final Object lock;
-
     private int terminationTimeout = 30;
 
     public PluginExecutor(int threadPool) {
@@ -39,16 +38,6 @@ public class PluginExecutor implements AutoCloseable {
         }
     }
 
-    private boolean isTaskRunning(String pluginName) {
-        if (tasks.containsKey(pluginName)) {
-            Future<?> task = tasks.get(pluginName);
-            if (task != null && !task.isDone()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public void shutdown() {
         executorService.shutdown();
         try {
@@ -64,5 +53,13 @@ public class PluginExecutor implements AutoCloseable {
     @Override
     public void close() {
         executorService.close();
+    }
+
+    private boolean isTaskRunning(String pluginName) {
+        if (tasks.containsKey(pluginName)) {
+            Future<?> task = tasks.get(pluginName);
+            return task != null && !task.isDone();
+        }
+        return false;
     }
 }

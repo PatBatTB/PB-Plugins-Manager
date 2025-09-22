@@ -1,4 +1,4 @@
-package io.github.patbattb.yougile.plugins.manager.exception;
+package io.github.patbattb.plugins.manager.exception;
 
 public class PluginNotLoadedException extends Exception {
     public PluginNotLoadedException() {

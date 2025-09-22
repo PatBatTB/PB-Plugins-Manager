@@ -1,6 +1,6 @@
-package io.github.patbattb.yougile.plugins.manager.service;
+package io.github.patbattb.plugins.manager.service;
 
-import io.github.patbattb.yougile.plugins.manager.exception.PluginAlreadyRunException;
+import io.github.patbattb.plugins.manager.exception.PluginAlreadyRunException;
 import sun.misc.Signal;
 
 import java.time.Instant;
