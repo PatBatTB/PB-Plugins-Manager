@@ -6,7 +6,7 @@
 
     <groupId>io.github.patbattb</groupId>
     <artifactId>YouGile-Plugins-Manager</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.4</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
