@@ -10,10 +10,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class PluginScheduler {
+public class PluginScheduler implements AutoCloseable {
 
-    private AtomicBoolean isRunning = new AtomicBoolean(true);
-    private AtomicInteger exitCode = new AtomicInteger(0);
+    private final AtomicBoolean isRunning = new AtomicBoolean(true);
+    private final AtomicInteger exitCode = new AtomicInteger(0);
 
     private final PluginExecutor executor;
     private final PluginManager manager;
@@ -33,16 +33,20 @@ public class PluginScheduler {
         this(manager, executor, 60);
     }
 
+    public int getExitCode() {
+        return exitCode.get();
+    }
+
     public void run() {
         try (PluginExecutor executor = this.executor) {
-            while (isRunning.get()) {
-                System.out.println("while starts");
+            while (isRunning.get() && !nextRunTime.isEmpty()) {
                 nextRunTime.entrySet().stream()
                         .filter(entry -> Instant.now().isAfter(entry.getValue()))
                         .forEach(entry -> {
                             String pluginName = entry.getKey();
+                            Runnable runnable = manager.getPluginRunnable(pluginName);
                             try {
-                                executor.invoke(pluginName);
+                                executor.invoke(pluginName, runnable);
                             } catch (PluginAlreadyRunException e) {
                                 System.out.println(e.getMessage());
                             }
@@ -55,17 +59,16 @@ public class PluginScheduler {
                 try {
                     TimeUnit.SECONDS.sleep(cycleTimeout);
                 } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-                if (nextRunTime.isEmpty()) {
-                    isRunning.set(false);
+                    Thread.currentThread().interrupt();
                 }
             }
         }
     }
 
     private void initializeSchedule() {
-        manager.getPlugins().forEach((k, v) -> nextRunTime.put(k, Instant.now()));
+        if (manager != null && manager.getPlugins() != null && !manager.getPlugins().isEmpty()) {
+            manager.getPlugins().forEach((k, v) -> nextRunTime.put(k, Instant.now()));
+        }
     }
 
     private boolean isRepeatable(String pluginName) {
@@ -89,14 +92,21 @@ public class PluginScheduler {
     }
 
     private void shutdownTerm(Signal signal) {
-        exitCode.set(143);
-        isRunning.set(false);
-        executor.shutdown(exitCode.get());
+        shutdown(143);
     }
     private void shutdownInt(Signal signal) {
-        exitCode.set(130);
-        isRunning.set(false);
-        executor.shutdown(exitCode.get());
+        shutdown(130);
     }
 
+    private void shutdown(int exitCode) {
+        System.out.println("\nWaiting for the plug-ins to finish working");
+        this.exitCode.set(exitCode);
+        isRunning.set(false);
+        executor.shutdown();
+    }
+
+    @Override
+    public void close() {
+        executor.close();
+    }
 }

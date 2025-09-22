@@ -30,7 +30,25 @@ public class PluginManager {
         plugins = new ConcurrentHashMap<>(map);
     }
 
-    public void executePlugin(String name) throws PluginCriticalException, PluginInterruptedException, PluginNotFoundException {
+    public Runnable getPluginRunnable(String pluginName) {
+        return () -> {
+            try {
+                executePlugin(pluginName);
+            } catch (PluginCriticalException e) {
+                removePlugin(pluginName);
+                System.out.println("Plugin" + pluginName + " has removed due to a critical error");
+                e.printStackTrace();
+            } catch (PluginInterruptedException e) {
+                System.out.println("Plugin " + pluginName + " has interrupted.");
+                e.printStackTrace();
+            } catch (PluginNotFoundException e) {
+                System.out.println("Plugin " + pluginName + " not found.");
+                e.printStackTrace();
+            }
+        };
+    }
+
+    private void executePlugin(String name) throws PluginCriticalException, PluginInterruptedException, PluginNotFoundException {
         YouGilePlugin plugin = plugins.get(name);
         if (plugin == null) {
             throw new PluginNotFoundException("Plugin " + name + " not found in loading plugins.");

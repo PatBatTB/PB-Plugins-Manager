@@ -28,14 +28,14 @@ public class JarPluginLoader implements PluginLoader {
         this.pluginsFolder = pluginsFolder;
     }
 
-    public Map<String, YouGilePlugin> load() {
+    public Map<String, YouGilePlugin> load() throws PluginNotLoadedException {
         try (Stream<Path> jarPaths = Files.list(pluginsFolder)) {
             jarPaths.forEach(this::processJar);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new PluginNotLoadedException("No one plugin loaded.");
         }
         if (plugins.isEmpty()) {
-            throw new RuntimeException("No one plugin loaded.");
+            throw new PluginNotLoadedException("No one plugin loaded.");
         }
         return plugins;
     }
