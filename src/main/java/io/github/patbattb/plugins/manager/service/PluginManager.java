@@ -5,6 +5,8 @@ import io.github.patbattb.plugins.core.expection.PluginCriticalException;
 import io.github.patbattb.plugins.core.expection.PluginInterruptedException;
 import io.github.patbattb.plugins.manager.exception.PluginNotFoundException;
 import io.github.patbattb.plugins.manager.exception.PluginNotLoadedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,6 +15,7 @@ import java.util.concurrent.ConcurrentMap;
 public class PluginManager {
 
     private ConcurrentMap<String, Plugin> plugins;
+    private final Logger log = LoggerFactory.getLogger(PluginManager.class);
 
     public PluginManager(PluginLoader loader) throws PluginNotLoadedException {
         loadPlugins(loader);
@@ -28,14 +31,11 @@ public class PluginManager {
                 executePlugin(pluginName);
             } catch (PluginCriticalException e) {
                 removePlugin(pluginName);
-                System.out.println("Plugin" + pluginName + " has removed due to a critical error");
-                e.printStackTrace();
+                log.warn("Plugin {} has removed due to a critical error", pluginName);
             } catch (PluginInterruptedException e) {
-                System.out.println("Plugin " + pluginName + " has interrupted.");
-                e.printStackTrace();
+                log.warn("Plugin {} has interrupted.", pluginName);
             } catch (PluginNotFoundException e) {
-                System.out.println("Plugin " + pluginName + " not found.");
-                e.printStackTrace();
+                log.warn("Plugin {} not found.", pluginName);
             }
         };
     }
@@ -55,7 +55,8 @@ public class PluginManager {
     private void executePlugin(String name) throws PluginCriticalException, PluginInterruptedException, PluginNotFoundException {
         Plugin plugin = plugins.get(name);
         if (plugin == null) {
-            throw new PluginNotFoundException("Plugin " + name + " not found in loading plugins.");
+            log.warn("Plugin {} not found in loading plugins.", name);
+            throw new PluginNotFoundException();
         }
         plugin.run();
     }

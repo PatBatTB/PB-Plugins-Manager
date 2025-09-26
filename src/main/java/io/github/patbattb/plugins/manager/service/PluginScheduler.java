@@ -1,6 +1,8 @@
 package io.github.patbattb.plugins.manager.service;
 
 import io.github.patbattb.plugins.manager.exception.PluginAlreadyRunException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
 import java.time.Instant;
@@ -19,6 +21,8 @@ public class PluginScheduler implements AutoCloseable {
     private final PluginManager manager;
     private final int cycleTimeout;
     private final Map<String, Instant> nextRunTime;
+
+    private final Logger log = LoggerFactory.getLogger(PluginScheduler.class);
 
     public PluginScheduler(PluginManager manager, PluginExecutor executor, int cycleTimeout) {
         this.manager = manager;
@@ -40,16 +44,14 @@ public class PluginScheduler implements AutoCloseable {
     public void run() {
         try (PluginExecutor executor = this.executor) {
             while (isRunning.get() && !nextRunTime.isEmpty()) {
+                log.debug("The scheduler is starting plugins.");
                 nextRunTime.entrySet().stream()
                         .filter(entry -> Instant.now().isAfter(entry.getValue()))
                         .forEach(entry -> {
                             String pluginName = entry.getKey();
                             Runnable runnable = manager.getPluginRunnable(pluginName);
-                            try {
-                                executor.invoke(pluginName, runnable);
-                            } catch (PluginAlreadyRunException e) {
-                                System.out.println(e.getMessage());
-                            }
+                            log.debug("The plugin {} is starting.", pluginName);
+                            executor.invoke(pluginName, runnable);
                             if (isRepeatable(pluginName)) {
                                 updateNextRunTime(pluginName);
                             } else {
@@ -59,7 +61,12 @@ public class PluginScheduler implements AutoCloseable {
                 try {
                     TimeUnit.SECONDS.sleep(cycleTimeout);
                 } catch (InterruptedException e) {
+                    log.warn("The running of the scheduler run-cycle has been interrupted.");
                     Thread.currentThread().interrupt();
+                }
+                if (manager.getPlugins().isEmpty()) {
+                    log.warn("The manager has no more plugins to run. Scheduler is turning off.");
+                    isRunning.set(false);
                 }
             }
         }
@@ -99,7 +106,7 @@ public class PluginScheduler implements AutoCloseable {
     }
 
     private void shutdown(int exitCode) {
-        System.out.println("\nWaiting for the plug-ins to finish working");
+        log.debug("The signal to shutting down has been received. Waiting for the end of the running plugins.");
         this.exitCode.set(exitCode);
         isRunning.set(false);
         executor.shutdown();

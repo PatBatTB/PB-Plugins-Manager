@@ -1,6 +1,7 @@
 package io.github.patbattb.plugins.manager.service;
 
-import io.github.patbattb.plugins.manager.exception.PluginAlreadyRunException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.*;
 
@@ -12,6 +13,7 @@ public class PluginExecutor implements AutoCloseable {
     private final ConcurrentMap<String, Future<?>> tasks;
     private final Object lock;
     private int terminationTimeout = 30;
+    private final Logger log = LoggerFactory.getLogger(PluginExecutor.class);
 
     public PluginExecutor(int threadPool) {
         this.executorService = Executors.newFixedThreadPool(threadPool);
@@ -27,11 +29,13 @@ public class PluginExecutor implements AutoCloseable {
         this.terminationTimeout = terminationTimeout;
     }
 
-    public void invoke(String pluginName, Runnable runnable) throws PluginAlreadyRunException {
+    public void invoke(String pluginName, Runnable runnable) {
         synchronized (lock) {
             Future<?> task;
             if (isTaskRunning(pluginName)) {
-                throw new PluginAlreadyRunException("Task " + pluginName + " ignored - already running");
+                log.debug("The Running of {} has been ignored. The last executing of this plugin has not ended yet.",
+                        pluginName
+                );
             }
             task = executorService.submit(runnable);
             tasks.put(pluginName, task);
@@ -42,10 +46,11 @@ public class PluginExecutor implements AutoCloseable {
         executorService.shutdown();
         try {
             if (!executorService.awaitTermination(terminationTimeout, TimeUnit.SECONDS)) {
-                System.out.println("ExecutorService is shutting down immediately.");
+                log.debug("Await termination timeout. The executor service stops immediately.");
                 executorService.shutdownNow();
             }
         } catch (InterruptedException e) {
+            log.debug("The executor service's shutdown was interrupted.");
             Thread.currentThread().interrupt();
         }
     }
