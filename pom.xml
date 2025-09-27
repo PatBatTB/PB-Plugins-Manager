@@ -5,8 +5,34 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.github.patbattb</groupId>
-    <artifactId>PB-Plugins-Manager</artifactId>
+    <artifactId>pb-plugins-manager</artifactId>
     <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>PB plugins manager</name>
+    <description>Manager for pb-plugins-platform. It runs plugins</description>
+    <url>https://github.com/PatBatTB/PB-Plugins-Manager</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>http://www.opensource.org/licenses/mit-license.php</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>PatBatTB</id>
+            <name>Patrick Bates</name>
+            <email>patbat.tb@gmail.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/PatBatTB/PB-Plugins-Manager.git</connection>
+        <developerConnection>scm:git:ssh://github.com:PatBatTB/PB-Plugins-Manager.git</developerConnection>
+        <url>https://github.com/PatBatTB/PB-Plugins-Manager/tree/main</url>
+    </scm>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -31,5 +57,79 @@
             <version>2.0.17</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.12.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.5</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>net.ju-n.maven.plugins</groupId>
+                <artifactId>checksum-maven-plugin</artifactId>
+                <version>1.4</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>files</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <fileSets>
+                        <fileSet>
+                            <directory>${project.build.directory}</directory>
+                        </fileSet>
+                    </fileSets>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.9.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <deploymentName>${artifactId}-${version}</deploymentName>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
