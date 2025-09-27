@@ -17,7 +17,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.patbattb</groupId>
-            <artifactId>PB-Plugins-Core</artifactId>
+            <artifactId>pb-plugins-core</artifactId>
             <version>1.0.0</version>
         </dependency>
         <dependency>
