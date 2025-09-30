@@ -1,13 +1,12 @@
 package io.github.patbattb.plugins.manager.service;
 
-import io.github.patbattb.plugins.manager.exception.PluginAlreadyRunException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -20,7 +19,7 @@ public class PluginScheduler implements AutoCloseable {
     private final PluginExecutor executor;
     private final PluginManager manager;
     private final int cycleTimeout;
-    private final Map<String, Instant> nextRunTime;
+    private final ConcurrentMap<String, Instant> nextRunTime;
 
     private final Logger log = LoggerFactory.getLogger(PluginScheduler.class);
 
@@ -28,7 +27,7 @@ public class PluginScheduler implements AutoCloseable {
         this.manager = manager;
         this.executor = executor;
         this.cycleTimeout = cycleTimeout;
-        this.nextRunTime = new HashMap<>();
+        this.nextRunTime = new ConcurrentHashMap<>();
         initializeSchedule();
         initShutdownSignals(executor);
     }

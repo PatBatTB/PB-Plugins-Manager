@@ -35,10 +35,10 @@ public class JarPluginLoader implements PluginLoader {
             jarPaths.forEach(this::processJar);
         } catch (IOException e) {
             log.error("Couldn't read pluginsFolder: {}", pluginsFolder);
-            throw new PluginNotLoadedException("No one plugin loaded.");
+            throw new PluginNotLoadedException("No one plugin loaded.", e);
         }
         if (plugins.isEmpty()) {
-            log.error("No one plugin couldn't load.");
+            log.error("No one plugin loaded.");
             throw new PluginNotLoadedException("No one plugin loaded.");
         }
         return plugins;
@@ -51,7 +51,6 @@ public class JarPluginLoader implements PluginLoader {
         try (URLClassLoader classLoader = getNewClassLoader(jarPath.toUri().toURL())){
             Plugin plugin = getPlugin(jarPath, classLoader);
             if (plugins.containsKey(plugin.getFullName())) {
-                log.error("Plugins collision! There is several plugins with same package path.");
                 throw new PluginNotLoadedException("Plugins collision! This class "+plugin.getFullName()+" is already registered.");
             }
             plugins.put(plugin.getFullName(), plugin);
@@ -72,8 +71,7 @@ public class JarPluginLoader implements PluginLoader {
             while(entries.hasMoreElements()) {
                 if (counter > 1) {
                     throw new PluginNotLoadedException(jarPath.getFileName() +
-                            " contains a few classes inherited from Plugin class. The only one class is allowed"
-                    );
+                            " contains a few classes inherited from Plugin class. The only one class is allowed");
                 }
                 JarEntry entry = entries.nextElement();
                 if (entry.isDirectory() || !entry.getName().endsWith(".class")) {
@@ -111,13 +109,14 @@ public class JarPluginLoader implements PluginLoader {
         return Optional.empty();
     }
 
-    private String getRealClassName(JarFile jarFile, JarEntry jarEntry) {
+    private String getRealClassName(JarFile jarFile, JarEntry jarEntry) throws IOException {
         ClassNameVisitor visitor = new ClassNameVisitor();
         try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
             ClassReader reader = new ClassReader(inputStream);
             reader.accept(visitor, ClassReader.SKIP_CODE);
         } catch (IOException e) {
             log.debug("Couldn't read class name.");
+            throw new IOException(e);
         }
         return visitor.getClassName();
     }

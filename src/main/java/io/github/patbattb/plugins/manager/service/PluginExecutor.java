@@ -31,13 +31,13 @@ public class PluginExecutor implements AutoCloseable {
 
     public void invoke(String pluginName, Runnable runnable) {
         synchronized (lock) {
-            Future<?> task;
             if (isTaskRunning(pluginName)) {
                 log.debug("The Running of {} has been ignored. The last executing of this plugin has not ended yet.",
                         pluginName
                 );
+                return;
             }
-            task = executorService.submit(runnable);
+            Future<?> task = executorService.submit(runnable);
             tasks.put(pluginName, task);
         }
     }

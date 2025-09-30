@@ -31,11 +31,11 @@ public class PluginManager {
                 executePlugin(pluginName);
             } catch (PluginCriticalException e) {
                 removePlugin(pluginName);
-                log.warn("Plugin {} has removed due to a critical error", pluginName);
+                log.error("Plugin {} has removed due to a critical error", pluginName);
             } catch (PluginInterruptedException e) {
-                log.warn("Plugin {} has interrupted.", pluginName);
+                log.error("Plugin {} has interrupted.", pluginName);
             } catch (PluginNotFoundException e) {
-                log.warn("Plugin {} not found.", pluginName);
+                log.error("Plugin {} not found.", pluginName);
             }
         };
     }
@@ -46,8 +46,8 @@ public class PluginManager {
 
     private void loadPlugins(PluginLoader loader) throws PluginNotLoadedException {
         Map<String, Plugin> map = loader.load();
-        if (map == null) {
-            throw new PluginNotLoadedException();
+        if (map == null || map.isEmpty()) {
+            throw new PluginNotLoadedException("No one plugin has loaded.");
         }
         plugins = new ConcurrentHashMap<>(map);
     }
@@ -56,7 +56,7 @@ public class PluginManager {
         Plugin plugin = plugins.get(name);
         if (plugin == null) {
             log.warn("Plugin {} not found in loading plugins.", name);
-            throw new PluginNotFoundException();
+            throw new PluginNotFoundException("Plugin " + name + " not found in loading plugins.");
         }
         plugin.run();
     }

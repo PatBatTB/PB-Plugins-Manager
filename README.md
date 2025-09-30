@@ -11,19 +11,9 @@ ___
 
 Для использования менеджера - необходимо его подключить как зависимость к своему проекту.
 
-В текущей реализации можно сбилдить данный проект и залить в локальный репозиторий maven:
-```bash
-mvn clean package deploy
-```
+Пакет доступен в центральном репозитории [Maven](https://mvnrepository.com/artifact/io.github.patbattb/pb-plugins-manager).
 
-После чего подключить его в своем проекте как зависимость:
-```xml
-<dependency>
-    <groupId>io.github.patbattb</groupId>
-    <artifactId>PB-Plugins-Manager</artifactId>
-    <version>{current_version}</version>
-</dependency>
-```
+
 ___
 ### Usage
 
@@ -52,7 +42,7 @@ ___
 
 Количество потоков можно задать при создании.
 
-```json
+```java
 int threadPool = 10;
 PluginExecutor executor = new PluginExecutor(threadPool);
 ```
