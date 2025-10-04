@@ -10,3 +10,6 @@ plugins/
 *.iws
 *.iml
 *.ipr
+
+### TEST ###
+src/main/java/io/github/patbattb/plugins/manager/service/Test.java
