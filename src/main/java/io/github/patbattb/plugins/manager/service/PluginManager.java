@@ -3,20 +3,20 @@ package io.github.patbattb.plugins.manager.service;
 import io.github.patbattb.plugins.core.Plugin;
 import io.github.patbattb.plugins.core.expection.PluginCriticalException;
 import io.github.patbattb.plugins.core.expection.PluginInterruptedException;
-import io.github.patbattb.plugins.manager.exception.PluginNotFoundException;
 import io.github.patbattb.plugins.manager.exception.PluginNotLoadedException;
 import io.github.patbattb.plugins.manager.smtp.MailClient;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.stream.Collectors;
 
 public class PluginManager {
 
-    private ConcurrentMap<String, Plugin> plugins;
+    private CopyOnWriteArraySet<Plugin> plugins;
     private final MailClient mailClient;
     private final boolean mailInterrupterErrors;
     private final boolean mailCriticalErrors;
@@ -34,58 +34,48 @@ public class PluginManager {
         this.mailCriticalErrors = mailCriticalErrors;
     }
 
-    public ConcurrentMap<String, Plugin> getPlugins() {
-        return plugins;
+    public Set<Plugin> getPlugins() {
+        return Set.copyOf(plugins);
     }
 
-    public Runnable getPluginRunnable(String pluginName) {
+    public Runnable getPluginRunnable(@NotNull Plugin plugin) {
         return () -> {
             try {
-                executePlugin(pluginName);
+                plugin.run();
             } catch (PluginCriticalException e) {
-                removePlugin(pluginName);
+                removePlugin(plugin.getFullName());
                 if (mailCriticalErrors) {
-                    String subject = "Critical error in plugin: " + pluginName;
+                    String subject = "Critical error in plugin: " + plugin.getTitle();
                     sendReport(subject, e);
                 }
-                log.error("Plugin {} has removed due to a critical error", pluginName, e);
+                log.error("Plugin {} has removed due to a critical error", plugin.getFullName(), e);
             } catch (PluginInterruptedException e) {
                 if (mailInterrupterErrors) {
-                    String subject = "Interrupt error in plugin: " + pluginName;
+                    String subject = "Interrupt error in plugin: " + plugin.getTitle();
                     sendReport(subject, e);
                 }
-                log.error("Plugin {} has interrupted.", pluginName, e);
-            } catch (PluginNotFoundException e) {
-                log.error("Plugin {} not found.", pluginName, e);
+                log.error("Plugin {} has interrupted.", plugin.getFullName(), e);
             }
         };
     }
 
     public void removePlugin(String name) {
-        plugins.remove(name);
+        plugins.removeIf(plugin -> plugin.getFullName().equals(name));
     }
 
     private void loadPlugins(PluginLoader loader) throws PluginNotLoadedException {
-        Map<String, Plugin> map = loader.load();
+        Set<Plugin> map = loader.load();
         if (map == null) {
             throw new PluginNotLoadedException();
         }
-        plugins = new ConcurrentHashMap<>(map);
-    }
-
-    private void executePlugin(String name) throws PluginCriticalException, PluginInterruptedException, PluginNotFoundException {
-        Plugin plugin = plugins.get(name);
-        if (plugin == null) {
-            log.warn("Plugin {} not found in loading plugins.", name);
-            throw new PluginNotFoundException();
-        }
-        plugin.run();
+        plugins = new CopyOnWriteArraySet<>(map);
     }
 
     private void sendReport(String subject, Exception exception) {
-        String mailBodyBuilder = exception.getMessage() +
-                System.lineSeparator() +
-                Arrays.toString(exception.getStackTrace());
-        mailClient.sendEmail(subject, mailBodyBuilder);
+        String stackTrace = Arrays.stream(exception.getStackTrace())
+                .map(StackTraceElement::toString)
+                .collect(Collectors.joining(System.lineSeparator()));
+        String mailBody = exception.getMessage() + System.lineSeparator() + stackTrace;
+        mailClient.sendEmail(subject, mailBody);
     }
 }

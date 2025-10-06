@@ -1,10 +1,12 @@
 package io.github.patbattb.plugins.manager.service;
 
+import io.github.patbattb.plugins.core.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Signal;
 
 import java.time.Instant;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -19,7 +21,7 @@ public class PluginScheduler implements AutoCloseable {
     private final PluginExecutor executor;
     private final PluginManager manager;
     private final int cycleTimeout;
-    private final ConcurrentMap<String, Instant> nextRunTime;
+    private final ConcurrentMap<Plugin, Instant> schedule;
 
     private final Logger log = LoggerFactory.getLogger(PluginScheduler.class);
 
@@ -27,7 +29,7 @@ public class PluginScheduler implements AutoCloseable {
         this.manager = manager;
         this.executor = executor;
         this.cycleTimeout = cycleTimeout;
-        this.nextRunTime = new ConcurrentHashMap<>();
+        this.schedule = new ConcurrentHashMap<>();
         initializeSchedule();
         initShutdownSignals(executor);
     }
@@ -42,30 +44,37 @@ public class PluginScheduler implements AutoCloseable {
 
     public void run() {
         try (PluginExecutor executor = this.executor) {
-            while (isRunning.get() && !nextRunTime.isEmpty()) {
+            while (isRunning.get() && !schedule.isEmpty()) {
+                Set<Plugin> plugins = manager.getPlugins();
+                if (plugins.isEmpty()) {
+                    log.warn("The manager has no more plugins to run. Scheduler is turning off.");
+                    shutdown(0);
+                    break;
+                }
                 log.debug("The scheduler is starting plugins.");
-                nextRunTime.entrySet().stream()
-                        .filter(entry -> Instant.now().isAfter(entry.getValue()))
-                        .forEach(entry -> {
-                            String pluginName = entry.getKey();
-                            Runnable runnable = manager.getPluginRunnable(pluginName);
-                            log.debug("The plugin {} is starting.", pluginName);
-                            executor.invoke(pluginName, runnable);
-                            if (isRepeatable(pluginName)) {
-                                updateNextRunTime(pluginName);
-                            } else {
-                                delete(pluginName);
-                            }
-                        });
+                for (Plugin plugin: plugins) {
+                    if (!schedule.containsKey(plugin)) {
+                        schedule.put(plugin, Instant.now());
+                    }
+                    Instant startTime = schedule.get(plugin);
+                    if (startTime.isBefore(Instant.now()) || startTime.equals(Instant.now())) {
+                        String pluginName = plugin.getFullName();
+                        Runnable runnable = manager.getPluginRunnable(plugin);
+                        log.debug("The plugin {} is starting.", pluginName);
+                        executor.invoke(pluginName, runnable);
+                        if (plugin.isRepeatable()) {
+                            updateNextRunTime(plugin, plugin.timeout());
+                        } else {
+                            delete(plugin);
+                        }
+                    }
+                }
+
                 try {
                     TimeUnit.SECONDS.sleep(cycleTimeout);
                 } catch (InterruptedException e) {
                     log.warn("The running of the scheduler run-cycle has been interrupted.");
                     Thread.currentThread().interrupt();
-                }
-                if (manager.getPlugins().isEmpty()) {
-                    log.warn("The manager has no more plugins to run. Scheduler is turning off.");
-                    isRunning.set(false);
                 }
             }
         }
@@ -73,23 +82,18 @@ public class PluginScheduler implements AutoCloseable {
 
     private void initializeSchedule() {
         if (manager != null && manager.getPlugins() != null && !manager.getPlugins().isEmpty()) {
-            manager.getPlugins().forEach((k, v) -> nextRunTime.put(k, Instant.now()));
+            manager.getPlugins().forEach(plugin -> schedule.put(plugin, Instant.now()));
         }
     }
 
-    private boolean isRepeatable(String pluginName) {
-        return manager.getPlugins().containsKey(pluginName) && manager.getPlugins().get(pluginName).isRepeatable();
-    }
-
-    private void updateNextRunTime(String pluginName) {
-        int timeout = manager.getPlugins().get(pluginName).timeout();
+    private void updateNextRunTime(Plugin plugin, int timeout) {
         Instant nextRun = Instant.now().plusSeconds(timeout);
-        nextRunTime.put(pluginName, nextRun);
+        schedule.put(plugin, nextRun);
     }
 
-    private void delete(String pluginName) {
-        nextRunTime.remove(pluginName);
-        manager.getPlugins().remove(pluginName);
+    private void delete(Plugin plugin) {
+        schedule.remove(plugin);
+        manager.removePlugin(plugin.getFullName());
     }
 
     private void initShutdownSignals(PluginExecutor executor) {

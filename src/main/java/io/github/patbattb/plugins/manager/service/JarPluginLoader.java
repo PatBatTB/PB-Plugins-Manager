@@ -23,14 +23,14 @@ import java.util.stream.Stream;
 public class JarPluginLoader implements PluginLoader {
 
     private final Path pluginsFolder;
-    private final Map<String, Plugin> plugins = new HashMap<>();
+    private final Set<Plugin> plugins = new HashSet<>();
     private final Logger log = LoggerFactory.getLogger(JarPluginLoader.class);
 
     public JarPluginLoader(Path pluginsFolder) {
         this.pluginsFolder = pluginsFolder;
     }
 
-    public Map<String, Plugin> load() throws PluginNotLoadedException {
+    public Set<Plugin> load() throws PluginNotLoadedException {
         try (Stream<Path> jarPaths = Files.list(pluginsFolder)) {
             jarPaths.forEach(this::processJar);
         } catch (IOException e) {
@@ -50,10 +50,13 @@ public class JarPluginLoader implements PluginLoader {
         }
         try (URLClassLoader classLoader = getNewClassLoader(jarPath.toUri().toURL())){
             Plugin plugin = getPlugin(jarPath, classLoader);
-            if (plugins.containsKey(plugin.getFullName())) {
+            Optional<Plugin> pluginOptional = plugins.stream()
+                    .filter(e -> e.getFullName().equals(plugin.getFullName()))
+                    .findAny();
+            if (pluginOptional.isPresent()) {
                 throw new PluginNotLoadedException("Plugins collision! This class "+plugin.getFullName()+" is already registered.");
             }
-            plugins.put(plugin.getFullName(), plugin);
+            plugins.add(plugin);
         } catch (PluginNotLoadedException | IOException e) {
             log.error(e.getMessage(), e);
         }
