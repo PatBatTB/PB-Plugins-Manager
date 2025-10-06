@@ -1,5 +1,6 @@
 package io.github.patbattb.plugins.manager.smtp;
 
+import org.simplejavamail.MailException;
 import org.simplejavamail.api.email.Email;
 import org.simplejavamail.api.mailer.Mailer;
 import org.simplejavamail.api.mailer.config.TransportStrategy;
@@ -24,7 +25,7 @@ public class MailClient {
         this.recipients = recipients;
     }
 
-    public void sendEmail(String subject, String body) {
+    public void sendEmail(String subject, String body) throws MailException {
         Email email = EmailBuilder.startingBlank()
                                 .from(sender.name(), sender.email())
                                 .to(String.join(",", recipients))

@@ -6,6 +6,7 @@ import io.github.patbattb.plugins.core.expection.PluginInterruptedException;
 import io.github.patbattb.plugins.manager.exception.PluginNotLoadedException;
 import io.github.patbattb.plugins.manager.smtp.MailClient;
 import org.jetbrains.annotations.NotNull;
+import org.simplejavamail.MailException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,6 +77,10 @@ public class PluginManager {
                 .map(StackTraceElement::toString)
                 .collect(Collectors.joining(System.lineSeparator()));
         String mailBody = exception.getMessage() + System.lineSeparator() + stackTrace;
-        mailClient.sendEmail(subject, mailBody);
+        try {
+            mailClient.sendEmail(subject, mailBody);
+        } catch (MailException e) {
+            log.error("Error in mail report sending", e);
+        }
     }
 }
