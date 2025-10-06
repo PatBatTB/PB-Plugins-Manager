@@ -70,6 +70,12 @@ public class PluginScheduler implements AutoCloseable {
                     }
                 }
 
+                if (schedule.isEmpty()) {
+                    log.warn("The scheduler has no more plugins to run. Scheduler is turning off.");
+                    shutdown(0);
+                    break;
+                }
+
                 try {
                     TimeUnit.SECONDS.sleep(cycleTimeout);
                 } catch (InterruptedException e) {
