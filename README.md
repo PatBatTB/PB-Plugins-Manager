@@ -56,6 +56,25 @@ PluginManager manager = new PluginManager(loader);
 ```
 При создании менеджера необходимо передать загрузчик плагинов, реализующий интерфейс `PluginLoader`.
 В сборке реализован загрузчик плагинов из jar-файлов `JarPluginLoader`. При необходимости можно реализовать свой.
+
+Так же в менеджере реализована отправка оповещений по email о возникших ошибках в работе плагинов.
+
+Конструктор менеджера имеет перегрузку конструктора, принимающий `MailClient`
+```java
+MailClient mailClient = new MailClient(
+        "smtp.yandex.ru", //smtp host
+        587, //smtp port
+        "user@yandex.ru", //login
+        "password", //password
+        false, //does use SSL
+        new Sender("PB plugin manager", "sender@yandex.ru"), //name and mail of sender
+        List.of("recipient@yandex.ru") //list of recipients
+);
+PluginManager manager = new PluginManager(loader, mailClient, 
+        true, //does send Interrupted errors
+        true //does send Critical errors
+);
+```
 ___
 ### `JarPluginLoader`
 

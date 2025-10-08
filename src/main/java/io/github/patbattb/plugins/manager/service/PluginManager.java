@@ -10,10 +10,8 @@ import org.simplejavamail.MailException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.stream.Collectors;
 
 public class PluginManager {
 
@@ -73,12 +71,17 @@ public class PluginManager {
     }
 
     private void sendReport(String subject, Exception exception) {
-        String stackTrace = Arrays.stream(exception.getStackTrace())
-                .map(StackTraceElement::toString)
-                .collect(Collectors.joining(System.lineSeparator()));
-        String mailBody = exception.getMessage() + System.lineSeparator() + stackTrace;
+        StringBuilder messageBuilder = new StringBuilder(exception.toString());
+        Throwable throwable = exception;
+        while (throwable.getCause() != null && throwable.getCause() != throwable) {
+            throwable = throwable.getCause();
+            messageBuilder.append("\nCaused by: ");
+            messageBuilder.append(throwable.toString());
+        }
+        messageBuilder.append("\nSee the logs for more information.");
+
         try {
-            mailClient.sendEmail(subject, mailBody);
+            mailClient.sendEmail(subject, messageBuilder.toString());
         } catch (MailException e) {
             log.error("Error in mail report sending", e);
         }
