@@ -22,6 +22,7 @@ public class PluginScheduler implements AutoCloseable {
     private final PluginManager manager;
     private final int cycleTimeout;
     private final ConcurrentMap<Plugin, Instant> schedule;
+    private final Thread mainThread = Thread.currentThread();
 
     private final Logger log = LoggerFactory.getLogger(PluginScheduler.class);
 
@@ -31,7 +32,7 @@ public class PluginScheduler implements AutoCloseable {
         this.cycleTimeout = cycleTimeout;
         this.schedule = new ConcurrentHashMap<>();
         initializeSchedule();
-        initShutdownSignals(executor);
+        initShutdownSignals();
     }
 
     public PluginScheduler(PluginManager manager, PluginExecutor executor) {
@@ -102,7 +103,7 @@ public class PluginScheduler implements AutoCloseable {
         manager.removePlugin(plugin.getFullName());
     }
 
-    private void initShutdownSignals(PluginExecutor executor) {
+    private void initShutdownSignals() {
         Signal.handle(new Signal("TERM"), this::shutdownTerm);
         Signal.handle(new Signal("INT"), this::shutdownInt);
     }
@@ -119,6 +120,7 @@ public class PluginScheduler implements AutoCloseable {
         this.exitCode.set(exitCode);
         isRunning.set(false);
         executor.shutdown();
+        mainThread.interrupt();
     }
 
     @Override
